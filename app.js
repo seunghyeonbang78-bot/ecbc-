@@ -79,10 +79,25 @@ function drawGoogle(){
   if(!google.configured){root.innerHTML='<h2>Google Calendar</h2><p>Google connection is not configured yet. Complete the Worker and Google settings in SETUP.md.</p><button class="outline-button" data-action="google-reload">Check again</button>';return;}
   const c=google.connection;
   root.innerHTML=`<h2>Google Calendar</h2><p>Add events in your chosen Google calendar and they will appear in the ECBC calendar automatically.</p><div class="toolbar-actions"><button class="outline-button" data-action="google-connect">${c?'Connect / switch Google account':'Connect Google Calendar'}</button><a class="outline-button" href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Open Google Calendar ↗</a></div>`;
-  if(c)root.innerHTML+=`<p><strong>${escapeHTML(c.email)}</strong><br>Calendar: ${escapeHTML(c.calendarName||'Not selected')}</p>${c.error?'<p class="error-box" role="alert">'+escapeHTML(c.error)+'</p>':''}<p class="fineprint">${c.syncedAt?'Last synced: '+new Date(c.syncedAt).toLocaleString():'No sync yet'}</p><div class="toolbar-actions"><button class="outline-button" data-action="google-list">Choose calendar</button>${c.calendarId?'<button class="outline-button" data-action="google-sync">Sync now</button>':''}<button class="delete-button" data-action="google-disconnect">Disconnect Google</button></div><p class="fineprint">Use a dedicated ECBC calendar. Other owners may connect their own accounts. Shared calendars are shown only once. Google events update automatically, usually within 1–2 minutes.</p>`;
+  if(c)root.innerHTML+=`<p><strong>${escapeHTML(c.email)}</strong><br>Calendar: ${escapeHTML(c.calendarName||'Not selected')}</p>${c.error?'<p class="error-box" role="alert">'+escapeHTML(c.error)+'</p>':''}<p class="fineprint">${c.syncedAt?'Last synced: '+new Date(c.syncedAt).toLocaleString():'No sync yet'}</p><div class="toolbar-actions"><button class="outline-button" data-action="google-list">Choose calendar</button>${c.calendarId?'<button class="outline-button" data-action="google-sync">Sync now</button>':''}<button class="delete-button" data-action="google-disconnect">Disconnect Google</button></div><p class="fineprint">Use a dedicated ECBC calendar. Other owners may connect their own accounts. Shared calendars are shown only once. Google events update automatically, usually within 1–2 minutes when automatic sync is enabled.</p>`;
   if(googleChoices.length)root.innerHTML+=`<form id="google-select-form" class="google-selection"><label>Calendar to show on ECBC<select name="calendarId" class="form-select" required><option value="">Select a calendar</option>${googleChoices.map(c=>`<option value="${escapeHTML(c.id)}">${escapeHTML(c.summary)}</option>`).join('')}</select></label><label class="check-label"><input type="checkbox" name="publish" required>Publish this calendar’s titles, times, locations and descriptions on the public ECBC website. Events marked private are excluded.</label><button class="button dark">Connect selected calendar</button></form>`;
 }
-async function loadGoogle(list=false){try{google=await api('/api/google'+(list?'?list=1':''));if(list){googleChoices=google.calendars;if(!googleChoices.length)throw new Error('No readable Google calendars were found.');}drawGoogle();}catch(e){status(e.message,true);}}
+async function loadGoogle(list=false){
+  try{
+    google=await api('/api/google'+(list?'?list=1':''));
+    // After OAuth, show the calendar picker immediately instead of another button.
+    if(!list&&google.configured&&google.connection&&!google.connection.calendarId){
+      google=await api('/api/google?list=1');list=true;
+    }
+    if(list)googleChoices=google.calendars||[];
+    drawGoogle();
+    if(list&&!googleChoices.length)status('No readable Google calendars were found. Add a calendar in Google Calendar, then choose a calendar again.',true);
+  }catch(e){
+    const root=$('#google-panel');
+    if(root)root.innerHTML='<h2>Google Calendar</h2><p class="error-box" role="alert">'+escapeHTML(e.message)+'</p><button class="outline-button" data-action="google-reload">Try again</button>';
+    status(e.message,true);
+  }
+}
 function status(message,error=false){const target=$('#owner-status');if(target){target.className=error?'error-box':'success-box';target.textContent=message;}}
 function modal(html){$('#modal-body').innerHTML=html;dirty=false;$('#modal').showModal();}
 function closeModal(){if(dirty&&!confirm('Discard unsaved changes?'))return;dirty=false;edit=null;$('#modal').close();}
