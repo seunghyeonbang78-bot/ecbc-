@@ -62,15 +62,13 @@ function createApp(env) {
   async function route(request){
     const url=new URL(request.url),path=url.pathname,db=clubDb();
     if(path==='/api/login'&&request.method==='POST'){
-      const body=await input(request);const ip=await hash(request.headers.get('CF-Connecting-IP')||'unknown');
+      const body=await input(request);
       const now=Date.now();
-      const attempt=await db.prepare('INSERT INTO login_attempts(key,count,reset_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN reset_at<? THEN 1 ELSE count+1 END,reset_at=CASE WHEN reset_at<? THEN excluded.reset_at ELSE reset_at END RETURNING count').bind(ip,now+900000,now,now).first();
-      if(attempt.count>8)throw new Failure('Too many attempts. Try again in 15 minutes.',429);
       const actual=await hash(typeof body.code==='string'?body.code:'');const expected=await hash(env.OWNER_CODE);
       let mismatch=0;for(let i=0;i<64;i++)mismatch|=actual.charCodeAt(i)^expected.charCodeAt(i);
       if(mismatch)throw new Failure('Incorrect Owner code.',401);
       const token=randomToken();await db.prepare('INSERT INTO owner_sessions(token_hash,expires_at,code_hash) VALUES(?,?,?)').bind(await hash(token),now+28800000,expected).run();
-      await db.prepare('DELETE FROM login_attempts WHERE key=?').bind(ip).run();return json({token});
+      return json({token});
     }
     if(path==='/api/club'&&request.method==='GET'){
       const admin=url.searchParams.get('admin')==='1';if(admin)await session(request);
