@@ -41,6 +41,18 @@ function createApp(env) {
   async function init(){
     if(!env.OWNER_CODE || env.OWNER_CODE.length<7 || env.OWNER_CODE.length>128)throw new Failure('Set OWNER_CODE to 7–128 characters in Worker Secrets.',503);
     await clubDb().batch(SCHEMA.map(sql=>clubDb().prepare(sql)));
+    // CREATE TABLE IF NOT EXISTS does not upgrade databases from older site versions.
+    const columns=await clubDb().prepare('PRAGMA table_info(owner_sessions)').all();
+    if(!columns.results.some(column=>column.name==='code_hash')){
+      try{
+        // Old sessions remain invalid until the owner signs in again.
+        await clubDb().prepare("ALTER TABLE owner_sessions ADD COLUMN code_hash TEXT NOT NULL DEFAULT ''").run();
+      }catch(error){
+        // Another request may have completed this migration concurrently.
+        const latest=await clubDb().prepare('PRAGMA table_info(owner_sessions)').all();
+        if(!latest.results.some(column=>column.name==='code_hash'))throw error;
+      }
+    }
   }
   async function session(request){
     const token=(request.headers.get('Authorization')||'').replace(/^Bearer /,'');
