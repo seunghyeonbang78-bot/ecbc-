@@ -18,6 +18,13 @@ export default {
       for (const [key,value] of Object.entries(headers)) result.headers.set(key,value);
       return result;
     } catch (error) {
+      if (!(error instanceof Failure)) {
+        // Record only diagnostic categories/schema identifiers, never credentials or request data.
+        const details = [error?.message, error?.cause?.message].filter(v => typeof v === 'string').join(' ');
+        const schema = details.match(/(?:no such (?:column|table): [A-Za-z_][A-Za-z0-9_.]*|table [A-Za-z_][A-Za-z0-9_]* has no column named [A-Za-z_][A-Za-z0-9_]*|(?:NOT NULL|UNIQUE) constraint failed: [A-Za-z_][A-Za-z0-9_.]*|FOREIGN KEY constraint failed)/i);
+        const category = schema?.[0] || (details.includes('D1_') ? 'D1 database operation failed' : 'Unexpected runtime error');
+        console.error({message:'ECBC request failed',operation:new URL(request.url).pathname === '/api/login' ? 'owner-login' : 'other',category,errorType:['TypeError','ReferenceError','RangeError','Error'].includes(error?.name)?error.name:'Error'});
+      }
       return Response.json({error:error instanceof Failure ? error.message : 'Service unavailable. Check Worker settings and try again.'},{status:error instanceof Failure ? error.status : 503,headers});
     }
   },
