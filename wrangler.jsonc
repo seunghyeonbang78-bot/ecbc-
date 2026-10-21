@@ -13,5 +13,8 @@
       "/api/*",
       "/oauth/*"
     ]
+  },
+  "vars": {
+    "SITE_URL": "https://ecbc.ecbc-seunghyeon.workers.dev/"
   }
 }
