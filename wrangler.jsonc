@@ -23,5 +23,12 @@
       "database_name": "ecbc-db",
       "database_id": "8e0c2826-d881-41b0-805a-95a2edf8ac0f"
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "invocation_logs": false
+    }
+  }
 }
