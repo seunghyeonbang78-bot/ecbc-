@@ -58,7 +58,40 @@ function calendarMarkup(admin=false){
   return html;
 }
 function drawCalendar(){$('#calendar-page').innerHTML='<div class="page-heading"><span class="eyebrow">LET’S PLAY</span><h1>Club calendar</h1><p>Open gym, training, and club events. All times are Eastern Time (Maryland).</p></div>'+calendarMarkup();}
+
+const newsSeenKey = 'ecbc-news-seen:' + API_URL;
+let seenNews = new Set();
+try {
+  const saved = JSON.parse(localStorage.getItem(newsSeenKey) || '[]');
+  if (Array.isArray(saved)) seenNews = new Set(saved.filter(id => typeof id === 'string'));
+} catch {}
+function updateNewsAlert(){
+  const published = posts.filter(p => p.status === 'published');
+  if(ready && page() === 'news' && !document.hidden){
+    for(const p of published) seenNews.add(String(p.id));
+    try { localStorage.setItem(newsSeenKey, JSON.stringify([...seenNews])); } catch {}
+  }
+  const unread = published.some(p => !seenNews.has(String(p.id)));
+  for(const selector of ['#navigation a[href="#news"]', '#menu-button']){
+    const link = $(selector); if(!link) continue;
+    let badge = link.querySelector('.news-alert');
+    if(!badge){
+      badge = document.createElement('span');
+      badge.className = 'news-alert';
+      badge.textContent = '!';
+      badge.setAttribute('role', 'img');
+      badge.setAttribute('aria-label', 'Unread club news');
+      badge.title = 'New club news';
+      link.appendChild(badge);
+      if(selector !== '#menu-button') link.classList.add('news-nav-link');
+      else badge.style.marginLeft = '7px';
+    }
+    badge.hidden = !unread;
+  }
+}
+
 function drawNews(){
+  updateNewsAlert();
   $('#news-page').innerHTML='<div class="page-heading"><span class="eyebrow">FROM THE CLUB</span><h1>News & updates</h1></div>'+(problem?`<p class="error-box" role="alert">${escapeHTML(problem)}</p>`:'')+posts.filter(p=>p.status==='published').map(p=>`<article class="news-article"><span class="eyebrow">${dateLabel(p.date)}${p.pinned?' · PINNED':''}</span><h2>${escapeHTML(p.title)}</h2><p class="preserve-lines">${escapeHTML(p.body)}</p></article>`).join('')+(!posts.some(p=>p.status==='published')&&ready?'<p>No announcements yet.</p>':'');
 }
 function drawAdmin(){
@@ -157,3 +190,4 @@ document.addEventListener('submit',async event=>{
 setInterval(()=>{if(!document.hidden){refresh(true);if(page()==='admin'&&ownerToken&&!googleChoices.length)loadGoogle();}},30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(true);});
 route();
+refresh();
